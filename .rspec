@@ -1,0 +1,6 @@
+--color
+--require spec_helper
+--format documentation
+--require pp
+--require pry
+--require app_helper

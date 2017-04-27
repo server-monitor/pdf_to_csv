@@ -1,0 +1,95 @@
+#!/usr/bin/env ruby
+
+require 'pathname'
+require 'fileutils'
+
+require 'csv'
+require 'terminal-table'
+
+require 'pdf_to_csv'
+
+class App
+  MODULE = PDFToCSV
+  DIR = Pathname.new('./'.freeze).freeze
+
+  # DIR = Pathname.new(
+  #   File.expand_path(
+  #     File.join(Array.new(2).map { '..'.freeze }), __FILE__
+  #   ).freeze
+  # ).freeze
+
+  DEFAULT_REMOTE = 'http://www.duila.org/Assets/RedRibbonInc/Incentive%20Solicitation%20list%202016.pdf'.freeze
+  private_constant :DEFAULT_REMOTE
+
+  DEFAULT_DEST_DIR = DIR.join('data'.freeze).freeze
+  private_constant :DEFAULT_DEST_DIR
+
+  DEFAULT_DEST = DEFAULT_DEST_DIR.join('file.pdf'.freeze).to_s.freeze
+
+  def initialize(filters)
+    @remote_file = env_get ENV['remote_file'.freeze], DEFAULT_REMOTE
+    @dest_file = env_get ENV['dest_file'.freeze], DEFAULT_DEST
+    @csv_file = csv_file_from ENV['csv_file'.freeze], dest_file
+    @filters = filters
+
+    vmod = env_get ENV['view'.freeze], nil
+    @view_module = vmod ? File.absolute_path(vmod) : vmod
+
+    [dest_file, csv_file].each do |file|
+      dir = File.dirname file
+      FileUtils.mkdir_p dir if !File.directory? dir
+    end
+
+    setup
+  end
+
+  def download
+    require 'pdf_to_csv/pdf'
+    pdf = MODULE::PDF.new remote_file, dest_file
+    pdf.download.to_csv(csv_file)
+
+    new_line
+  end
+
+  def view
+    return if !view_module
+
+    require_relative view_module
+    self.class.class_eval { include View }
+
+    show csv_file
+  end
+
+  private
+
+  attr_reader :remote_file, :dest_file, :csv_file, :filters, :view_module
+
+  def env_get(arg, default)
+    return default if !arg
+
+    stripped = arg.strip.freeze
+    return stripped.empty? ? default : stripped
+  end
+
+  def csv_file_from(arg, pdf_file)
+    dir = File.dirname(pdf_file).freeze
+    bname = File.basename(pdf_file, '.pdf').freeze
+    default = File.join(dir, bname + '.csv').freeze
+
+    return env_get(arg, default)
+  end
+
+  def setup
+    require 'pdf_to_csv/log'
+    self.class.class_eval { include MODULE::Log }
+    info 'PDF Downloader and CSV Converter', bold: true
+
+    require 'pdf_to_csv/java'
+    java = MODULE::Java.new
+    java.jar.download
+  end
+end
+
+runner = App.new ARGV
+runner.download
+runner.view

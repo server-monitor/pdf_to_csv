@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+[ -f Gemfile ] || cat <<EOF > Gemfile
+source 'https://rubygems.org'
+# ruby '2.4.0'
+
+gem 'pdf_to_csv', git: 'https://github.com/server-monitor/pdf_to_csv'
+EOF
+
+bundle install --path vendor/bundle --binstubs
